@@ -43,4 +43,5 @@ public class TaskThreeTests {
             logger.info("...");
         }
     }
+
 }

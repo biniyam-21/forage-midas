@@ -1,9 +1,6 @@
 package com.jpmc.midascore.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
 public class TransactionRecord {
@@ -12,39 +9,49 @@ public class TransactionRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long senderId;
+    @ManyToOne
+    private UserRecord sender;
 
-    private Long recipientId;
+    @ManyToOne
+    private UserRecord recipient;
 
     private float amount;
+
+    private float incentive;
 
     public TransactionRecord() {
     }
 
-    public TransactionRecord(Long senderId, Long recipientId, float amount) {
-        this.senderId = senderId;
-        this.recipientId = recipientId;
+    public TransactionRecord(
+            UserRecord sender,
+            UserRecord recipient,
+            float amount,
+            float incentive
+    ) {
+        this.sender = sender;
+        this.recipient = recipient;
         this.amount = amount;
+        this.incentive = incentive;
     }
 
     public Long getId() {
         return id;
     }
 
-    public Long getSenderId() {
-        return senderId;
+    public UserRecord getSender() {
+        return sender;
     }
 
-    public void setSenderId(Long senderId) {
-        this.senderId = senderId;
+    public void setSender(UserRecord sender) {
+        this.sender = sender;
     }
 
-    public Long getRecipientId() {
-        return recipientId;
+    public UserRecord getRecipient() {
+        return recipient;
     }
 
-    public void setRecipientId(Long recipientId) {
-        this.recipientId = recipientId;
+    public void setRecipient(UserRecord recipient) {
+        this.recipient = recipient;
     }
 
     public float getAmount() {
@@ -53,5 +60,13 @@ public class TransactionRecord {
 
     public void setAmount(float amount) {
         this.amount = amount;
+    }
+
+    public float getIncentive() {
+        return incentive;
+    }
+
+    public void setIncentive(float incentive) {
+        this.incentive = incentive;
     }
 }

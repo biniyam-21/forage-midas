@@ -1,13 +1,15 @@
 package com.jpmc.midascore;
 
-import com.jpmc.midascore.entity.TransactionRecord;
 import com.jpmc.midascore.entity.UserRecord;
+import com.jpmc.midascore.entity.TransactionRecord;
+import com.jpmc.midascore.foundation.Incentive;
 import com.jpmc.midascore.foundation.Transaction;
 import com.jpmc.midascore.repository.TransactionRecordRepository;
 import com.jpmc.midascore.repository.UserRepository;
 
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 
 @Component
 public class KafkaConsumer {
@@ -23,56 +25,57 @@ public class KafkaConsumer {
         this.transactionRecordRepository = transactionRecordRepository;
     }
 
-    @KafkaListener(
-            topics = "${general.kafka-topic}",
-            groupId = "midas-core-group"
-    )
+    @KafkaListener(topics = "${general.kafka-topic}")
     public void listen(Transaction transaction) {
 
-        if (transaction == null) return;
+        UserRecord sender =
+                userRepository.findById(transaction.getSenderId());
 
-        // Fetch sender
-        UserRecord sender = userRepository
-                .findById(transaction.getSenderId())
-                .orElse(null);
+        if (sender == null) {
+            return;
+        }
 
-        if (sender == null) return;
+        UserRecord recipient =
+                userRepository.findById(transaction.getRecipientId());
 
-        // Fetch recipient
-        UserRecord recipient = userRepository
-                .findById(transaction.getRecipientId())
-                .orElse(null);
-
-        if (recipient == null) return;
+        if (recipient == null) {
+            return;
+        }
 
         float amount = transaction.getAmount();
 
-        // Validate balance
-        if (sender.getBalance() < amount) return;
+        if (sender.getBalance() < amount) {
+            return;
+        }
 
-        // Update balances
+        RestTemplate restTemplate = new RestTemplate();
+
+        Incentive incentive = restTemplate.postForObject(
+                "http://localhost:8080/incentive",
+                transaction,
+                Incentive.class
+        );
+
+        float incentiveAmount = incentive != null
+                ? incentive.getAmount()
+                : 0;
+
         sender.setBalance(sender.getBalance() - amount);
-        recipient.setBalance(recipient.getBalance() + amount);
 
-        // Persist users
+        recipient.setBalance(
+                recipient.getBalance() + amount + incentiveAmount
+        );
+
         userRepository.save(sender);
         userRepository.save(recipient);
 
-        // Save transaction record (ONLY ONCE)
-        TransactionRecord transactionRecord = new TransactionRecord(
-                sender.getId(),
-                recipient.getId(),
-                amount
-        );
-
-
-        if (sender.getName().equals("waldorf")) {
-            System.out.println("Waldorf sender balance: " + sender.getBalance());
-        }
-
-        if (recipient.getName().equals("waldorf")) {
-            System.out.println("Waldorf recipient balance: " + recipient.getBalance());
-        }
+        TransactionRecord transactionRecord =
+                new TransactionRecord(
+                        sender,
+                        recipient,
+                        amount,
+                        incentiveAmount
+                );
 
         transactionRecordRepository.save(transactionRecord);
     }
